@@ -1,6 +1,7 @@
 {
   "inputs": [
-    "audienceMotionData"
+    "audienceMotionData",
+    "oscIris"
   ],
   "extraJS": [
     "/bower_components/jquery/jquery.min.js",

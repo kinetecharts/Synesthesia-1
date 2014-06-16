@@ -24,13 +24,15 @@ var _ = require('underscore');
 var app = express();
 var server = http.createServer(app);
 var port = process.env.PORT || 8080;
-var oscPort = process.env.OSC_PORT || 3333;
+var oscPortIn = process.env.OSC_PORT || 3333;
+var oscPortOut = process.env.OSC_PORT || 3334;
+
 server.listen(port);
 var io = require('socket.io').listen(server);
 app.set('io', io);
 app.set('oscIo', oscIo);
 
-console.log('Synesthesia server listing on ', port, "\nListening for OSC on port ", oscPort);
+console.log('Synesthesia server listing on ', port, "\nListening for OSC on port ", oscPortIn);
 
  // --- osc routing 
 var webcamio = require('socket.io').listen(8081);
@@ -38,8 +40,9 @@ var webcamio = require('socket.io').listen(8081);
 webcamio.set('log level', 1);
 
 var oscServer, oscClient;
-oscServer = new oscIo.Server(3333, '127.0.0.1');
-oscClient = new oscIo.Client(3334, '127.0.0.1');
+console.log("start osc server listening at " + oscPortIn +", and sending at " + oscPortOut);
+oscServer = new oscIo.Server(oscPortIn, '127.0.0.1');
+oscClient = new oscIo.Client(oscPortOut, '127.0.0.1');
 
 
 var inputChannels = {
@@ -111,7 +114,7 @@ var dancer = io.of('/dancer');
 var audio = io.of('/audio');
 var opticalFlow = io.of('/opticalFlow');
 // var linedance = io.of('/linedance');
-var osc = new oscIo.Client('127.0.0.1', oscPort);
+var osc = new oscIo.Client('127.0.0.1', oscPortIn);
 var fone = io.of('/fone');
 var gridcontrol = io.of('/gridcontrol');
 
@@ -148,6 +151,8 @@ app.get('/', routes.renderClient);
 // app.get('*', routes.renderView);
 
 app.get('*', function(req,res){
+  // console.log(req);
+  // console.log(res);
   routes.renderView(req,res,visualizers);
 });
 app.use(function(err, req, res, next){
@@ -161,6 +166,22 @@ app.use(function(err, req, res, next){
 /// EVENTS
 //////////////////////////////////////////
 
+// Process osc data
+oscServer.on('message', function(msg, rinfo) {
+      console.log(msg);
+      var oscPath = msg[0];
+      var oscPathSplitted = oscPath.split('/');
+      var oscDestination = oscPathSplitted[1];
+      console.log(oscDestination);
+      switch(oscDestination){
+        case "iris":
+          msg[0] = oscPathSplitted[2]; //control part of osc
+          emitData("oscIris", msg);
+          break;
+      }
+      // emitData("message", msg);
+});
+
 webcamio.sockets.on('connection', function (socket) {
   socket.on("config", function (obj) {
     // oscServer = new osc.Server(obj.server.port, obj.server.host);
@@ -169,6 +190,7 @@ webcamio.sockets.on('connection', function (socket) {
     // oscClient.send('/status', socket.sessionId + ' connected');
 
     oscServer.on('message', function(msg, rinfo) {
+      console.log(msg);
       socket.emit("message", msg);
       flock.emit("blob", msg);
       particles.emit("blob", msg);
