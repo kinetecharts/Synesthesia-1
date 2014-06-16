@@ -2,6 +2,7 @@
 // On phone: server:port/fone
 
 jQuery(function($) {
+  document.title = "Iris";
   var server = io.connect('/iris');
   server.on('welcome', function (data) {
       console.log('welcomed', data);

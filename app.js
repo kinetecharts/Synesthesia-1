@@ -173,10 +173,13 @@ oscServer.on('message', function(msg, rinfo) {
       var oscPathSplitted = oscPath.split('/');
       var oscDestination = oscPathSplitted[1];
       console.log(oscDestination);
+      msg[0] = oscPathSplitted[2]; //control part of osc
       switch(oscDestination){
         case "iris":
-          msg[0] = oscPathSplitted[2]; //control part of osc
           emitData("oscIris", msg);
+          break;
+        case "satellite":
+          emitData("oscSatellite", msg);
           break;
       }
       // emitData("message", msg);

@@ -4,7 +4,8 @@
     "audio",
     "blob",
     "audienceMotionData",
-    "tiltangle"
+    "tiltangle",
+    "oscSatellite"
   ],
   "extraJS": [
     "/bower_components/jquery/jquery.min.js",

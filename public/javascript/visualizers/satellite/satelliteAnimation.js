@@ -9,7 +9,12 @@
 
 // **note: expect osc input camera resolution to be 640 x 480
 
+// for checking framerate
+var filterStrength = 20;
+var frameTime = 0, lastLoop = new Date, thisLoop;
+
  var visualizer = window.visualizer = {};
+ var zFactor = 0.95;
 
   visualizer.settings = {
     // size of the rendered visualization
@@ -60,10 +65,14 @@
 // d3.geo parameters for creating a satellite projection path
   visualizer.projectionParams = {
     distance: 1.1,
-    scale: 8500,
-    rotate: [76.00, -34.50, 32.12],
-    center: [0, 3],
-    tilt: 25,
+    // scale: 8500,
+    // rotate: [76.00, -34.50, 32.12],
+    // center: [0, 3],
+    // tilt: 25,
+    scale: 4500,
+    rotate: [0, 0, 0],  //North-South Axis, 
+    center: [0, 0],
+    tilt: 0,
     clipAngle: (Math.acos(1 / 1.1) * 180 / Math.PI - 1e-6),
     precision: 0.1,
     colorClass: 'graticule',
@@ -79,8 +88,9 @@
 
 // graticule is the basis of the grid path based on the projection parameters above
   visualizer.graticule = d3.geo.graticule()
-      .extent([[-93, 27], [-47 + 1e-6, 57 + 1e-6]])
-      .step([0.5, 0.5]);
+      // .extent([[-93, 27], [-47 + 1e-6, 57 + 1e-6]])
+      .extent([[-20, -20], [20 + 1e-6, 20 + 1e-6]])
+      .step([1.5, 1.5]);
 
 
 
@@ -115,10 +125,18 @@
 
 //updates the tiltAngle setting
   visualizer.tiltChange = function(tilt) {
-    for (var dimension in visualizer.settings.tiltAngle) {
-      visualizer.settings.tiltAngle[dimension] = zFilter(tilt[dimension], visualizer.settings.tiltAngle[dimension], 0.999);
-    }
-    visualizer.settings.tiltAngle = tilt;
+    // for (var i in visualizer.settings.tiltAngle) {
+      // visualizer.settings.tiltAngle[i] = zFilter(tilt[i], visualizer.settings.tiltAngle[i], zFactor);
+    // }
+    // console.log(tilt);
+    var threshold = 8;
+    tilt.X = Math.abs(tilt.X)>threshold ? tilt.X : 0;
+    tilt.Y = Math.abs(tilt.Y)>threshold ? tilt.Y : 0;
+
+    visualizer.projectionParams.center[0] = zFilter(tilt.Y/2.0, visualizer.projectionParams.center[0], zFactor);
+    visualizer.projectionParams.center[1] = zFilter(-tilt.X/2.0, visualizer.projectionParams.center[1], zFactor);
+    // console.log(visualizer.projectionParams.center);
+    // visualizer.settings.tiltAngle = tilt;
   };
 
 //resets optical flow data bins
@@ -150,20 +168,62 @@
 
 //callback for incoming tilt data -- separated from tiltChange for potential future addition of extra functionality
   visualizer.handleTilt = function(tiltAngle) {
+    // console.log(tiltAngle);
     visualizer.tiltChange(tiltAngle);
   };
 
+  visualizer.handleOsc = function(msg){
+    switch(msg[0]){
+      case "scale":
+        // console.log(msg);
+        visualizer.projectionParams.scale = msg[1]*10000;
+        break;
+      case "scaleChange":
+        if(msg[1]==1){ //scale up
+          visualizer.projectionParams.scale *= 1.001;
+        }else{
+          visualizer.projectionParams.scale /= 1.001;
+        }
+        console.log(visualizer.projectionParams.scale);
+        break;
+      case "resetScale":
+        visualizer.projectionParams.scale = 4500;
+        break;
+      case "distance":
+        visualizer.projectionParams.distance = 1.0001 +msg[1];
+        break;
+      case "distanceChange":
+        if(msg[1]==1){
+          visualizer.projectionParams.distance *=1.001;
+        }else{
+          visualizer.projectionParams.distance /=1.001;
+        }
+        break;
+      case "resetDistance":
+        visualizer.projectionParams.distance = 1.1;
+        break;
+    }
+  };
+
   visualizer.nextMove = function () {
+    // check framerate
+      var thisFrameTime = (thisLoop=new Date) - lastLoop;
+        frameTime+= (thisFrameTime - frameTime) / filterStrength;
+        lastLoop = thisLoop;
+      var fpsOut = document.getElementById('fps');
+      fpsOut.innerHTML = (1000/frameTime).toFixed(1) + " fps";
+        // console.log((1000/frameTime).toFixed(1)+"fps");
+
       var nextPath;
       var globe = d3.select(this);
-      visualizer.shiftCenter(visualizer.opticalFlowData);
-      visualizer.resetCollectionBins();
-      if (visualizer.settings.wobble) {
-        visualizer.settings.centerCoords = randomCenterAdjustment(visualizer.settings.centerCoords, visualizer.settings.wobbleFactor);
-      }
+      // visualizer.shiftCenter(visualizer.opticalFlowData);
+      // visualizer.resetCollectionBins();
+      // if (visualizer.settings.wobble) {
+      //   visualizer.settings.centerCoords = randomCenterAdjustment(visualizer.settings.centerCoords, visualizer.settings.wobbleFactor);
+      // }
 
-      visualizer.projectionParams.center[0] = zFilter(visualizer.settings.centerCoords[0], visualizer.projectionParams.center[0], 0.4);
-      visualizer.projectionParams.center[1] = zFilter(visualizer.settings.centerCoords[1], visualizer.projectionParams.center[1], 0.4);
+      // visualizer.projectionParams.center[0] = zFilter(visualizer.settings.centerCoords[0], visualizer.projectionParams.center[0], 0.4);
+      // visualizer.projectionParams.center[1] = zFilter(visualizer.settings.centerCoords[1], visualizer.projectionParams.center[1], 0.4);
 
       nextPath = makeProjPath(visualizer.projectionParams);
 
@@ -174,7 +234,7 @@
         globe
           .style('opacity', 1)
           .transition()
-          .duration(3000)
+          .duration(100)
           .attr("d", nextPath)
           .style("stroke-width", visualizer.projectionParams.shakeOffset)
           // .attr("transform", function(d) { return "skewX(" + 0 + ")" + "skewY(" + 0 + ")"; })
@@ -182,12 +242,12 @@
       } else {
         globe
           .transition()
-          .duration(50)
+          .duration(30)
           .attr("d", nextPath)
           .style("stroke-width", visualizer.projectionParams.shake)
           .style("stroke", function(d,i){return "hsl(" + ((visualizer.projectionParams.freq/1000)*360) + ",100%,50%)";})
           // .attr("transform")
-          .attr("transform", function(d) { return "skewX(" + visualizer.settings.tiltAngle.X + ")" + "skewY(" + visualizer.settings.tiltAngle.Y + ")"; })
+          // .attr("transform", function(d) { return "skewX(" + visualizer.settings.tiltAngle.X + ")" + "skewY(" + visualizer.settings.tiltAngle.Y + ")"; })
           .each("end", visualizer.nextMove);
       }
   };
@@ -228,18 +288,18 @@
 
  $(document).ready(function(){
 
-  visualizer.path = makeProjPath(visualizer.projectionParams);
+    visualizer.path = makeProjPath(visualizer.projectionParams);
 
-  visualizer.svg = d3.select("body").append("svg")
-      .attr("width", visualizer.settings.width)
-      .attr("height", visualizer.settings.height);
+    visualizer.svg = d3.select("body").append("svg")
+        .attr("width", visualizer.settings.width)
+        .attr("height", visualizer.settings.height);
 
-  visualizer.svg.append("path")
-      .datum(visualizer.graticule)
-      .attr("class", "graticule")
-      .attr("d", visualizer.path);
+    visualizer.svg.append("path")
+        .datum(visualizer.graticule)
+        .attr("class", "graticule")
+        .attr("d", visualizer.path);
 
-  d3.select("path")
+    d3.select("path")
         .attr("d", visualizer.path) //move center
         .transition()
         .each("end", visualizer.nextMove);
@@ -247,7 +307,7 @@
     setInterval(function(){
       visualizer.setShake(visualizer.accelerationAccumulator);
       visualizer.accelerationAccumulator = 0;
-    }, 100);
+    }, 300);
 
     d3.select(self.frameElement).style("height", visualizer.settings.height + "px");
   });

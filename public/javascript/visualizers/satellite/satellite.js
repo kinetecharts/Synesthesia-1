@@ -1,7 +1,9 @@
 var server = io.connect('/satellite');
 
 $(document).ready(function(){
+  $('body').append('<div id="fps"></div>')
   $('body').append('<div id=instructions></div>');
+  document.title = "Satellite grid";
 
   (function(){
 
@@ -15,6 +17,7 @@ $(document).ready(function(){
     server.on('audio', visualizer.getFreq);
     server.on('audienceMotionData', visualizer.handleShakes);
     server.on('tiltangle', visualizer.handleTilt);
+    server.on('oscSatellite', visualizer.handleOsc);
 
   })();
 });

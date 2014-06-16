@@ -13,6 +13,7 @@ var randomCenterAdjustment = function(oldCoords, scalingFactor) {
 
 
 var makeProjPath = function(projParams) {
+  // console.log(projParams.distance);
     var projection = d3.geo.satellite()
       .distance(projParams.distance)
       .scale(projParams.scale)
