@@ -42,7 +42,7 @@ jQuery(function($) {
   // This function smoothes out the jitteriness of transitioning between very
   // different scores. Set 'z' higher for more smoothing, and lower for less effect
   var zFilter = function(inputData, previousValue){
-    var z = 0.8; // set this between 0 and 1
+    var z = 0.95; // set this between 0 and 1
     return (z*previousValue + (1-z)*inputData);
   };
 
